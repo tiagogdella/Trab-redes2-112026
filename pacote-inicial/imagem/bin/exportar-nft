@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Entrega ao Prometheus os contadores das regras do nftables desta máquina.
+
+Uso: exportar-nft ENDERECO:PORTA
+  ENDERECO:PORTA  onde o Prometheus lê as métricas, em http://ENDERECO:PORTA/metrics
+
+Métricas, por regra que tem counter (rótulos familia, tabela, cadeia e regra):
+  nft_pacotes_total  pacotes contados pela regra
+  nft_bytes_total    bytes contados pela regra
+
+O rótulo regra é o comentário da regra (comment "..."), ou "handle N" quando ela não
+tem comentário. As tabelas que o próprio Docker cria no contêiner, com cadeias de nome
+DOCKER_, ficam de fora. Os contadores são lidos do nftables a cada consulta do Prometheus,
+então uma regra criada ou removida aparece ou some na consulta seguinte.
+"""
+import json
+import subprocess
+import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+def rotulo(valor):
+    return str(valor).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
+def metricas():
+    saida = subprocess.run(["nft", "-j", "list", "ruleset"], capture_output=True,
+                           text=True, check=True).stdout
+    itens = json.loads(saida)["nftables"]
+    do_docker = {(c["chain"]["family"], c["chain"]["table"]) for c in itens
+                 if "chain" in c and c["chain"]["name"].startswith("DOCKER")}
+    linhas = ["# TYPE nft_pacotes_total counter", "# TYPE nft_bytes_total counter"]
+    for item in itens:
+        regra = item.get("rule")
+        if not regra or (regra["family"], regra["table"]) in do_docker:
+            continue
+        contador = next((e["counter"] for e in regra.get("expr", [])
+                         if isinstance(e, dict) and "counter" in e), None)
+        if not isinstance(contador, dict) or "packets" not in contador:
+            continue
+        nome = regra.get("comment") or f"handle {regra['handle']}"
+        r = (f'familia="{rotulo(regra["family"])}",tabela="{rotulo(regra["table"])}",'
+             f'cadeia="{rotulo(regra["chain"])}",regra="{rotulo(nome)}"')
+        linhas.append(f"nft_pacotes_total{{{r}}} {contador['packets']}")
+        linhas.append(f"nft_bytes_total{{{r}}} {contador['bytes']}")
+    return ("\n".join(linhas) + "\n").encode()
+
+
+class Metricas(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/metrics":
+            self.send_error(404)
+            return
+        try:
+            corpo = metricas()
+        except (subprocess.CalledProcessError, ValueError, KeyError) as erro:
+            self.send_error(500, str(erro))
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def log_message(self, *args):
+        pass
+
+
+def main():
+    if len(sys.argv) != 2 or ":" not in sys.argv[1]:
+        sys.exit(__doc__)
+    endereco, porta = sys.argv[1].rsplit(":", 1)
+    servidor = ThreadingHTTPServer((endereco, int(porta)), Metricas)
+    print(f"exportar-nft: métricas em http://{endereco}:{porta}/metrics", flush=True)
+    servidor.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Executa o script de inicialização da máquina, dado no command do compose.yaml,
+# e mantém a máquina no ar mesmo que o script falhe, para que ela possa ser examinada.
+if [ -n "$1" ]; then
+    if [ -f "$1" ]; then
+        # Remove o CR de arquivos salvos com fim de linha do Windows.
+        sed 's/\r$//' "$1" > /run/iniciar.sh
+        if sh -e /run/iniciar.sh; then
+            echo "[$(hostname)] inicialização concluída"
+            touch /run/pronto
+        else
+            echo "[$(hostname)] ERRO: $1 terminou com falha; a máquina continua no ar para diagnóstico"
+        fi
+    else
+        echo "[$(hostname)] ERRO: $1 não existe"
+    fi
+fi
+exec sleep infinity

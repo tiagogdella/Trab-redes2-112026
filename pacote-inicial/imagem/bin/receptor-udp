@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Recebe as mensagens do emissor-udp e entrega as métricas ao Prometheus.
+
+Uso: receptor-udp PORTA_UDP ENDERECO_DAS_METRICAS:PORTA [ARQUIVO_CSV]
+  PORTA_UDP          porta em que as mensagens chegam, em todas as interfaces
+  ENDERECO:PORTA     onde o Prometheus lê as métricas, em http://ENDERECO:PORTA/metrics
+  ARQUIVO_CSV        opcional: uma linha por mensagem recebida
+
+Métricas, por emissor (rótulo origem):
+  udp_mensagens_recebidas_total
+  udp_mensagens_perdidas_total        lacunas na sequência
+  udp_mensagens_fora_de_ordem_total   chegaram depois de uma de sequência maior
+  udp_atraso_segundos                 histograma do atraso de cada mensagem
+  udp_ultima_mensagem_segundos        instante da última chegada, em segundos desde 1970
+
+O atraso é exato porque todos os contêineres usam o relógio do mesmo computador.
+A primeira mensagem de cada origem não abre lacuna, mesmo que não seja a de sequência 1.
+Uma mensagem de sequência 1 indica que o emissor recomeçou, e a contagem segue dela.
+"""
+import socket
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+LIMITES = (0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 1.0, 2.0, 5.0)
+trava = threading.Lock()
+origens = {}
+
+
+def nova_origem():
+    return {"recebidas": 0, "perdidas": 0, "fora": 0, "ultima_seq": 0,
+            "ultima": 0.0, "baldes": [0] * len(LIMITES), "soma": 0.0}
+
+
+def registrar(origem, seq, atraso, chegada):
+    with trava:
+        if origem not in origens:
+            # A primeira mensagem de uma origem não abre lacuna: o receptor pode ter
+            # começado depois do emissor, como um coletor novo numa troca.
+            origens[origem] = nova_origem()
+            origens[origem]["ultima_seq"] = seq - 1
+        o = origens[origem]
+        if seq == 1:
+            o["ultima_seq"] = 0
+        if seq > o["ultima_seq"]:
+            o["perdidas"] += seq - o["ultima_seq"] - 1
+            o["ultima_seq"] = seq
+        else:
+            o["fora"] += 1
+        o["recebidas"] += 1
+        o["ultima"] = chegada
+        o["soma"] += atraso
+        for i, limite in enumerate(LIMITES):
+            if atraso <= limite:
+                o["baldes"][i] += 1
+
+
+def metricas():
+    linhas = [
+        "# TYPE udp_mensagens_recebidas_total counter",
+        "# TYPE udp_mensagens_perdidas_total counter",
+        "# TYPE udp_mensagens_fora_de_ordem_total counter",
+        "# TYPE udp_ultima_mensagem_segundos gauge",
+        "# TYPE udp_atraso_segundos histogram",
+    ]
+    with trava:
+        for nome, o in sorted(origens.items()):
+            r = f'origem="{nome}"'
+            linhas += [
+                f"udp_mensagens_recebidas_total{{{r}}} {o['recebidas']}",
+                f"udp_mensagens_perdidas_total{{{r}}} {o['perdidas']}",
+                f"udp_mensagens_fora_de_ordem_total{{{r}}} {o['fora']}",
+                f"udp_ultima_mensagem_segundos{{{r}}} {o['ultima']:.3f}",
+            ]
+            for limite, n in zip(LIMITES, o["baldes"]):
+                linhas.append(f'udp_atraso_segundos_bucket{{{r},le="{limite}"}} {n}')
+            linhas += [
+                f'udp_atraso_segundos_bucket{{{r},le="+Inf"}} {o["recebidas"]}',
+                f"udp_atraso_segundos_sum{{{r}}} {o['soma']:.6f}",
+                f"udp_atraso_segundos_count{{{r}}} {o['recebidas']}",
+            ]
+    return ("\n".join(linhas) + "\n").encode()
+
+
+class Metricas(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/metrics":
+            self.send_error(404)
+            return
+        corpo = metricas()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def log_message(self, *args):
+        pass
+
+
+def main():
+    if len(sys.argv) not in (3, 4):
+        sys.exit(__doc__)
+    porta = int(sys.argv[1])
+    endereco, porta_metricas = sys.argv[2].rsplit(":", 1)
+    csv = open(sys.argv[3], "a", buffering=1, encoding="utf-8") if len(sys.argv) == 4 else None
+    if csv and csv.tell() == 0:
+        csv.write("chegada,origem,sequencia,atraso_ms\n")
+    servidor = ThreadingHTTPServer((endereco, int(porta_metricas)), Metricas)
+    threading.Thread(target=servidor.serve_forever, daemon=True).start()
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("0.0.0.0", porta))
+    print(f"receptor-udp: mensagens em {porta}/udp, métricas em http://{endereco}:{porta_metricas}/metrics", flush=True)
+    while True:
+        dados, _ = s.recvfrom(2048)
+        chegada_ns = time.time_ns()
+        try:
+            origem, seq, envio_ns = dados.split(b" ", 3)[:3]
+            origem, seq, envio_ns = origem.decode(), int(seq), int(envio_ns)
+        except ValueError:
+            continue
+        atraso = max(0, chegada_ns - envio_ns) / 1e9
+        registrar(origem, seq, atraso, chegada_ns / 1e9)
+        if csv:
+            csv.write(f"{chegada_ns / 1e9:.6f},{origem},{seq},{atraso * 1000:.3f}\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,71 @@
+# Exemplo do pacote inicial: cliente -> roteador -> servidor.
+# O projeto do grupo começa daqui: acrescente as máquinas e as redes da organização.
+name: tp-exemplo
+
+# Tudo o que é comum às máquinas. Cada máquina só acrescenta redes e o script de inicialização.
+x-maquina: &maquina
+  build: ./imagem
+  image: dec7128-tp:1
+  cap_add: [NET_ADMIN, NET_RAW]
+  volumes:
+    - ./config:/config:ro
+  healthcheck:
+    test: ["CMD", "test", "-f", "/run/pronto"]
+    interval: 2s
+    timeout: 2s
+    retries: 30
+
+# Só os roteadores encaminham: as demais máquinas, mesmo ligadas a duas redes, como as
+# que estão na gerência, não passam pacotes de uma rede para a outra. Nenhuma usa IPv6.
+x-roteador: &roteador
+  net.ipv4.ip_forward: "1"
+  net.ipv4.conf.all.rp_filter: "0"
+  net.ipv4.conf.default.rp_filter: "0"
+  net.ipv6.conf.all.disable_ipv6: "1"
+x-host: &host
+  net.ipv4.ip_forward: "0"
+  net.ipv6.conf.all.disable_ipv6: "1"
+
+services:
+  cliente:
+    <<: *maquina
+    container_name: cliente
+    hostname: cliente
+    sysctls: *host
+    command: ["/config/cliente.sh"]
+    networks:
+      rede-a: {interface_name: eth0, ipv4_address: 10.250.1.10}
+  roteador:
+    <<: *maquina
+    container_name: roteador
+    hostname: roteador
+    sysctls: *roteador
+    command: ["/config/roteador.sh"]
+    networks:
+      rede-a: {interface_name: eth0, ipv4_address: 10.250.1.1}
+      rede-b: {interface_name: eth1, ipv4_address: 10.250.2.1}
+  servidor:
+    <<: *maquina
+    container_name: servidor
+    hostname: servidor
+    sysctls: *host
+    command: ["/config/servidor.sh"]
+    networks:
+      rede-b: {interface_name: eth0, ipv4_address: 10.250.2.10}
+
+# Cada rede é uma ponte sem endereço no computador e sem tradução de endereços:
+# o tráfego entre as redes passa só pelos roteadores do grupo. O gateway do Docker
+# fica num endereço que nenhuma máquina usa, o .254.
+x-rede: &rede
+  driver: bridge
+  driver_opts:
+    com.docker.network.bridge.inhibit_ipv4: "true"
+    com.docker.network.bridge.enable_ip_masquerade: "false"
+
+networks:
+  rede-a:
+    <<: *rede
+    ipam: {config: [{subnet: 10.250.1.0/24, gateway: 10.250.1.254}]}
+  rede-b:
+    <<: *rede
+    ipam: {config: [{subnet: 10.250.2.0/24, gateway: 10.250.2.254}]}

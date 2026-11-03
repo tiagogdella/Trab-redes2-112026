@@ -1,0 +1,149 @@
+# Inventário da rede do Espaço Ponto Comum
+# Uma seção [[maquina]] por contêiner. O script de inventário compara este arquivo
+# com a rede em funcionamento e lista cada diferença.
+#
+# Campos:
+#   nome         nome da máquina (igual ao container_name do compose.yaml)
+#   funcao       o que a máquina faz
+#   responsavel  "equipe de redes" (roteadores) ou "equipe de sistemas" (demais)
+#   interfaces   uma por rede: nome da interface, rede Docker e endereço/prefixo
+#   software     programas em execução e versão (preenchido a cada degrau)
+
+# ---------------------------------------------------------------- roteadores
+
+[[maquina]]
+nome = "rt-borda"
+funcao = "Roteador de borda"
+responsavel = "equipe de redes"
+interfaces = [
+  { nome = "eth0",  rede = "internet",      endereco = "10.80.0.1/24" },
+  { nome = "eth1",  rede = "comum",         endereco = "10.80.1.1/24" },
+  { nome = "eth2",  rede = "enlace-andar1", endereco = "10.80.11.1/24" },
+  { nome = "eth3",  rede = "enlace-andar2", endereco = "10.80.12.1/24" },
+  { nome = "mgmt0", rede = "gerencia",      endereco = "10.80.250.1/24" },
+]
+software = []
+
+[[maquina]]
+nome = "rt-andar1"
+funcao = "Roteador do primeiro andar"
+responsavel = "equipe de redes"
+interfaces = [
+  { nome = "eth0",  rede = "enlace-andar1", endereco = "10.80.11.2/24" },
+  { nome = "eth1",  rede = "alfa",          endereco = "10.80.21.1/24" },
+  { nome = "eth2",  rede = "beta",          endereco = "10.80.22.1/24" },
+  { nome = "mgmt0", rede = "gerencia",      endereco = "10.80.250.2/24" },
+]
+software = []
+
+[[maquina]]
+nome = "rt-andar2"
+funcao = "Roteador do segundo andar"
+responsavel = "equipe de redes"
+interfaces = [
+  { nome = "eth0",  rede = "enlace-andar2", endereco = "10.80.12.2/24" },
+  { nome = "eth1",  rede = "gama",          endereco = "10.80.23.1/24" },
+  { nome = "mgmt0", rede = "gerencia",      endereco = "10.80.250.3/24" },
+]
+software = []
+
+# ---------------------------------------------------------------- servidores
+
+[[maquina]]
+nome = "srv-portal"
+funcao = "Portal de reserva de salas (HTTP 80/tcp)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0",  rede = "comum",    endereco = "10.80.1.10/24" },
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.10/24" },
+]
+software = []
+
+[[maquina]]
+nome = "srv-arquivos"
+funcao = "Arquivos compartilhados (HTTP 8080/tcp)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0",  rede = "comum",    endereco = "10.80.1.20/24" },
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.20/24" },
+]
+software = []
+
+[[maquina]]
+nome = "srv-dns"
+funcao = "Servidor de nomes (DNS 53/udp e 53/tcp)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0",  rede = "comum",    endereco = "10.80.1.30/24" },
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.30/24" },
+]
+software = []
+
+# ---------------------------------------------------------------- clientes
+
+[[maquina]]
+nome = "cli-alfa"
+funcao = "Computador da Alfa"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0", rede = "alfa", endereco = "10.80.21.10/24" },
+]
+software = []
+
+[[maquina]]
+nome = "cli-beta"
+funcao = "Computador da Beta"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0", rede = "beta", endereco = "10.80.22.10/24" },
+]
+software = []
+
+[[maquina]]
+nome = "cli-gama"
+funcao = "Computador da Gama"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0", rede = "gama", endereco = "10.80.23.10/24" },
+]
+software = []
+
+[[maquina]]
+nome = "externo"
+funcao = "Público que reserva salas (na Internet simulada)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0", rede = "internet", endereco = "10.80.0.10/24" },
+]
+software = []
+
+# ---------------------------------------------------------------- sondas e gerência
+
+[[maquina]]
+nome = "sonda-internet"
+funcao = "Sonda na Internet (Blackbox Exporter)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0",  rede = "internet", endereco = "10.80.0.20/24" },
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.41/24" },
+]
+software = []
+
+[[maquina]]
+nome = "sonda-gama"
+funcao = "Sonda na rede gama (Blackbox Exporter)"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "eth0",  rede = "gama",     endereco = "10.80.23.20/24" },
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.42/24" },
+]
+software = []
+
+[[maquina]]
+nome = "gerente"
+funcao = "Gerência: Prometheus e consultas SNMPv3"
+responsavel = "equipe de sistemas"
+interfaces = [
+  { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.100/24" },
+]
+software = []

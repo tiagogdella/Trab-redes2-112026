@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Envia mensagens UDP numeradas, a uma taxa fixa, para um destino dado por nome.
+
+Uso: emissor-udp DESTINO PORTA TAXA TAMANHO
+  DESTINO  nome ou endereço do receptor, resolvido de novo a cada 5 s
+  PORTA    porta UDP do receptor
+  TAXA     mensagens por segundo
+  TAMANHO  bytes por mensagem, de 40 a 1400
+
+Cada mensagem leva o nome desta máquina, o número de sequência, que começa em 1
+e aumenta a cada mensagem gerada, e o instante de envio. Se o nome não resolver,
+a mensagem é contada como gerada e não é enviada, como numa perda.
+
+O nome é consultado numa thread à parte: uma consulta lenta ou perdida num enlace
+com perda não atrasa nem interrompe o envio, que segue para o último endereço obtido.
+"""
+import socket
+import sys
+import threading
+import time
+
+RESOLVER_A_CADA = 5.0
+estado = {"endereco": None}
+
+
+def resolver(destino):
+    try:
+        novo = socket.gethostbyname(destino)
+        if novo != estado["endereco"]:
+            print(f"emissor-udp: {destino} = {novo}", flush=True)
+        estado["endereco"] = novo
+    except OSError:
+        if estado["endereco"] is not None:
+            print(f"emissor-udp: {destino} não resolveu", flush=True)
+        estado["endereco"] = None
+
+
+def resolver_sempre(destino):
+    while True:
+        time.sleep(RESOLVER_A_CADA)
+        resolver(destino)
+
+
+def main():
+    if len(sys.argv) != 5:
+        sys.exit(__doc__)
+    destino, porta = sys.argv[1], int(sys.argv[2])
+    taxa, tamanho = float(sys.argv[3]), int(sys.argv[4])
+    if not 40 <= tamanho <= 1400 or taxa <= 0:
+        sys.exit("TAXA precisa ser positiva e TAMANHO estar entre 40 e 1400")
+    origem = socket.gethostname()
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    intervalo = 1.0 / taxa
+    print(f"emissor-udp: {origem} -> {destino}:{porta}, {taxa:g} msg/s, {tamanho} bytes", flush=True)
+    resolver(destino)
+    threading.Thread(target=resolver_sempre, args=(destino,), daemon=True).start()
+    seq, proximo = 0, time.monotonic()
+    while True:
+        endereco = estado["endereco"]
+        seq += 1
+        cabecalho = f"{origem} {seq} {time.time_ns()} ".encode()
+        if endereco is not None:
+            try:
+                s.sendto(cabecalho.ljust(tamanho, b"."), (endereco, porta))
+            except OSError:
+                pass
+        proximo += intervalo
+        espera = proximo - time.monotonic()
+        if espera > 0:
+            time.sleep(espera)
+        elif espera < -1:
+            proximo = time.monotonic()
+
+
+if __name__ == "__main__":
+    main()
