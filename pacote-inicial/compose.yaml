@@ -1,6 +1,6 @@
 # Exemplo do pacote inicial: cliente -> roteador -> servidor.
 # O projeto do grupo começa daqui: acrescente as máquinas e as redes da organização.
-name: tp-exemplo
+name: ponto-comum
 
 # Tudo o que é comum às máquinas. Cada máquina só acrescenta redes e o script de inicialização.
 x-maquina: &maquina
@@ -27,31 +27,141 @@ x-host: &host
   net.ipv6.conf.all.disable_ipv6: "1"
 
 services:
-  cliente:
+  # ------------------------------------------------ roteadores
+  rt-borda:
     <<: *maquina
-    container_name: cliente
-    hostname: cliente
-    sysctls: *host
-    command: ["/config/cliente.sh"]
-    networks:
-      rede-a: {interface_name: eth0, ipv4_address: 10.250.1.10}
-  roteador:
-    <<: *maquina
-    container_name: roteador
-    hostname: roteador
+    container_name: rt-borda
+    hostname: rt-borda
     sysctls: *roteador
-    command: ["/config/roteador.sh"]
+    command: ["/config/rt-borda.sh"]
     networks:
-      rede-a: {interface_name: eth0, ipv4_address: 10.250.1.1}
-      rede-b: {interface_name: eth1, ipv4_address: 10.250.2.1}
-  servidor:
+      internet:      {interface_name: eth0,  ipv4_address: 10.80.0.1}
+      comum:         {interface_name: eth1,  ipv4_address: 10.80.1.1}
+      enlace-andar1: {interface_name: eth2,  ipv4_address: 10.80.11.1}
+      enlace-andar2: {interface_name: eth3,  ipv4_address: 10.80.12.1}
+      gerencia:      {interface_name: mgmt0, ipv4_address: 10.80.250.1}
+
+  rt-andar1:
     <<: *maquina
-    container_name: servidor
-    hostname: servidor
-    sysctls: *host
-    command: ["/config/servidor.sh"]
+    container_name: rt-andar1
+    hostname: rt-andar1
+    sysctls: *roteador
+    command: ["/config/rt-andar1.sh"]
     networks:
-      rede-b: {interface_name: eth0, ipv4_address: 10.250.2.10}
+      enlace-andar1: {interface_name: eth0,  ipv4_address: 10.80.11.2}
+      alfa:          {interface_name: eth1,  ipv4_address: 10.80.21.1}
+      beta:          {interface_name: eth2,  ipv4_address: 10.80.22.1}
+      gerencia:      {interface_name: mgmt0, ipv4_address: 10.80.250.2}
+
+  rt-andar2:
+    <<: *maquina
+    container_name: rt-andar2
+    hostname: rt-andar2
+    sysctls: *roteador
+    command: ["/config/rt-andar2.sh"]
+    networks:
+      enlace-andar2: {interface_name: eth0,  ipv4_address: 10.80.12.2}
+      gama:          {interface_name: eth1,  ipv4_address: 10.80.23.1}
+      gerencia:      {interface_name: mgmt0, ipv4_address: 10.80.250.3}
+  # ------------------------------------------------ servidores (rede comum)
+  srv-portal:
+    <<: *maquina
+    container_name: srv-portal
+    hostname: srv-portal
+    sysctls: *host
+    command: ["/config/srv-portal.sh"]
+    networks:
+      comum:    {interface_name: eth0,  ipv4_address: 10.80.1.10}
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.10}
+
+  srv-arquivos:
+    <<: *maquina
+    container_name: srv-arquivos
+    hostname: srv-arquivos
+    sysctls: *host
+    command: ["/config/srv-arquivos.sh"]
+    networks:
+      comum:    {interface_name: eth0,  ipv4_address: 10.80.1.20}
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.20}
+
+  srv-dns:
+    <<: *maquina
+    container_name: srv-dns
+    hostname: srv-dns
+    sysctls: *host
+    command: ["/config/srv-dns.sh"]
+    networks:
+      comum:    {interface_name: eth0,  ipv4_address: 10.80.1.30}
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.30}
+  # ------------------------------------------------ clientes
+  cli-alfa:
+    <<: *maquina
+    container_name: cli-alfa
+    hostname: cli-alfa
+    sysctls: *host
+    command: ["/config/cli-alfa.sh"]
+    networks:
+      alfa: {interface_name: eth0, ipv4_address: 10.80.21.10}
+
+  cli-beta:
+    <<: *maquina
+    container_name: cli-beta
+    hostname: cli-beta
+    sysctls: *host
+    command: ["/config/cli-beta.sh"]
+    networks:
+      beta: {interface_name: eth0, ipv4_address: 10.80.22.10}
+
+  cli-gama:
+    <<: *maquina
+    container_name: cli-gama
+    hostname: cli-gama
+    sysctls: *host
+    command: ["/config/cli-gama.sh"]
+    networks:
+      gama: {interface_name: eth0, ipv4_address: 10.80.23.10}
+
+  externo:
+    <<: *maquina
+    container_name: externo
+    hostname: externo
+    sysctls: *host
+    command: ["/config/externo.sh"]
+    networks:
+      internet: {interface_name: eth0, ipv4_address: 10.80.0.10}
+
+  # ------------------------------------------------ sondas
+  sonda-internet:
+    <<: *maquina
+    container_name: sonda-internet
+    hostname: sonda-internet
+    sysctls: *host
+    command: ["/config/sonda-internet.sh"]
+    networks:
+      internet: {interface_name: eth0,  ipv4_address: 10.80.0.20}
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.41}
+
+  sonda-gama:
+    <<: *maquina
+    container_name: sonda-gama
+    hostname: sonda-gama
+    sysctls: *host
+    command: ["/config/sonda-gama.sh"]
+    networks:
+      gama:     {interface_name: eth0,  ipv4_address: 10.80.23.20}
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.42}
+
+  # ------------------------------------------------ gerência
+  # Única máquina que mantém a rota padrão do Docker: o Prometheus abre no navegador.
+  gerente:
+    <<: *maquina
+    container_name: gerente
+    hostname: gerente
+    sysctls: *host
+    command: ["/config/gerente.sh"]
+    ports: ["9090:9090"]
+    networks:
+      gerencia: {interface_name: mgmt0, ipv4_address: 10.80.250.100}
 
 # Cada rede é uma ponte sem endereço no computador e sem tradução de endereços:
 # o tráfego entre as redes passa só pelos roteadores do grupo. O gateway do Docker
@@ -63,9 +173,30 @@ x-rede: &rede
     com.docker.network.bridge.enable_ip_masquerade: "false"
 
 networks:
-  rede-a:
+  internet:
     <<: *rede
-    ipam: {config: [{subnet: 10.250.1.0/24, gateway: 10.250.1.254}]}
-  rede-b:
+    ipam: {config: [{subnet: 10.80.0.0/24, gateway: 10.80.0.254}]}
+  comum:
     <<: *rede
-    ipam: {config: [{subnet: 10.250.2.0/24, gateway: 10.250.2.254}]}
+    ipam: {config: [{subnet: 10.80.1.0/24, gateway: 10.80.1.254}]}
+  enlace-andar1:
+    <<: *rede
+    ipam: {config: [{subnet: 10.80.11.0/24, gateway: 10.80.11.254}]}
+  enlace-andar2:
+    <<: *rede
+    ipam: {config: [{subnet: 10.80.12.0/24, gateway: 10.80.12.254}]}
+  alfa:
+    <<: *rede
+    ipam: {config: [{subnet: 10.80.21.0/24, gateway: 10.80.21.254}]}
+  beta:
+    <<: *rede
+    ipam: {config: [{subnet: 10.80.22.0/24, gateway: 10.80.22.254}]}
+  gama:
+    <<: *rede
+    ipam: {config: [{subnet: 10.80.23.0/24, gateway: 10.80.23.254}]}
+  # Gerência: a única com endereço no PC, pro navegador abrir o Prometheus.
+  gerencia:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    ipam: {config: [{subnet: 10.80.250.0/24, gateway: 10.80.250.254}]}
