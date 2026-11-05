@@ -57,7 +57,9 @@ interfaces = [
   { nome = "eth0",  rede = "comum",    endereco = "10.80.1.10/24" },
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.10/24" },
 ]
-software = []
+software = [
+  { nome = "nginx", versao = "1.26.3", porta = "80/tcp" },
+]
 
 [[maquina]]
 nome = "srv-arquivos"
@@ -67,7 +69,9 @@ interfaces = [
   { nome = "eth0",  rede = "comum",    endereco = "10.80.1.20/24" },
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.20/24" },
 ]
-software = []
+software = [
+  { nome = "nginx", versao = "1.26.3", porta = "8080/tcp" },
+]
 
 [[maquina]]
 nome = "srv-dns"
@@ -77,7 +81,9 @@ interfaces = [
   { nome = "eth0",  rede = "comum",    endereco = "10.80.1.30/24" },
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.30/24" },
 ]
-software = []
+software = [
+  { nome = "dnsmasq", versao = "2.91", porta = "53/udp, 53/tcp" },
+]
 
 # ---------------------------------------------------------------- clientes
 
