@@ -1,0 +1,40 @@
+# Prometheus do gerente: coleta as sondas (C1 a C3) e os contadores do nftables.
+global:
+  scrape_interval: 5s       # pergunta a cada 5 s
+  evaluation_interval: 5s   # avalia as regras de alerta a cada 5 s
+
+rule_files:
+  - /config/alertas.yml
+
+scrape_configs:
+  # C1: portal visto da Internet, pela sonda-internet.
+  - job_name: C1
+    metrics_path: /probe
+    params: {module: [http_200]}
+    static_configs: [{targets: ["http://srv-portal/"]}]
+    relabel_configs: &sonda
+      - {source_labels: [__address__], target_label: __param_target}
+      - {source_labels: [__param_target], target_label: instance}
+      - {target_label: __address__, replacement: 10.80.250.41:9115}
+
+  # C2: portal visto da Gama, pela sonda-gama (o limite de 50 ms fica no alerta).
+  - job_name: C2
+    metrics_path: /probe
+    params: {module: [http_200]}
+    static_configs: [{targets: ["http://srv-portal/"]}]
+    relabel_configs: &sonda-gama
+      - {source_labels: [__address__], target_label: __param_target}
+      - {source_labels: [__param_target], target_label: instance}
+      - {target_label: __address__, replacement: 10.80.250.42:9115}
+
+  # C3: arquivos vistos da Gama, pela sonda-gama.
+  - job_name: C3
+    metrics_path: /probe
+    params: {module: [http_200]}
+    static_configs: [{targets: ["http://srv-arquivos:8080/"]}]
+    relabel_configs: *sonda-gama
+
+  # Contadores das regras do nftables dos roteadores.
+  - job_name: nftables
+    static_configs:
+      - targets: ["10.80.250.1:9102", "10.80.250.2:9102", "10.80.250.3:9102"]

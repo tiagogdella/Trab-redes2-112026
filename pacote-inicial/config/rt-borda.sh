@@ -13,3 +13,6 @@ echo "nameserver 10.80.1.30" > /etc/resolv.conf
 # Filtragem e exportação dos contadores para o Prometheus (só pela gerência).
 nft -f /config/rt-borda.nft
 exportar-nft 10.80.250.1:9102 > /tmp/exportar-nft.log 2>&1 &
+
+# Agente SNMPv3, escutando só na gerência.
+snmpd -C -c /config/snmpd.conf -Lf /tmp/snmpd.log udp:10.80.250.1:161

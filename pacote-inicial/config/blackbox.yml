@@ -1,0 +1,11 @@
+# Teste usado pelas sondas: GET HTTP que só conta como sucesso se a resposta for 200.
+modules:
+  http_200:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: [200]
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
+      

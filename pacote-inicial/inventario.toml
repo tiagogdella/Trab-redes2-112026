@@ -148,7 +148,9 @@ interfaces = [
   { nome = "eth0",  rede = "internet", endereco = "10.80.0.20/24" },
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.41/24" },
 ]
-software = []
+software = [
+  { nome = "prometheus-blackbox-exporter", versao = "0.26.0", porta = "9115/tcp (mgmt0)" },
+]
 
 [[maquina]]
 nome = "sonda-gama"
@@ -158,7 +160,9 @@ interfaces = [
   { nome = "eth0",  rede = "gama",     endereco = "10.80.23.20/24" },
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.42/24" },
 ]
-software = []
+software = [
+  { nome = "prometheus-blackbox-exporter", versao = "0.26.0", porta = "9115/tcp (mgmt0)" },
+]
 
 [[maquina]]
 nome = "gerente"
@@ -167,4 +171,7 @@ responsavel = "equipe de sistemas"
 interfaces = [
   { nome = "mgmt0", rede = "gerencia", endereco = "10.80.250.100/24" },
 ]
-software = []
+software = [
+  { nome = "prometheus", versao = "2.53.3", porta = "9090/tcp" },
+]
+

@@ -9,3 +9,5 @@ echo "nameserver 10.80.1.30" > /etc/resolv.conf
 
 nft -f /config/rt-andar2.nft
 exportar-nft 10.80.250.3:9102 > /tmp/exportar-nft.log 2>&1 &
+
+snmpd -C -c /config/snmpd.conf -Lf /tmp/snmpd.log udp:10.80.250.3:161
