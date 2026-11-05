@@ -9,3 +9,7 @@ tc qdisc replace dev eth2 root netem delay 5ms rate 20mbit   # enlace-andar1
 tc qdisc replace dev eth3 root netem delay 5ms rate 20mbit   # enlace-andar2
 
 echo "nameserver 10.80.1.30" > /etc/resolv.conf
+
+# Filtragem e exportação dos contadores para o Prometheus (só pela gerência).
+nft -f /config/rt-borda.nft
+exportar-nft 10.80.250.1:9102 > /tmp/exportar-nft.log 2>&1 &

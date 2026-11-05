@@ -1,0 +1,38 @@
+# Filtragem do rt-borda. Interfaces: eth0 internet, eth1 comum,
+# eth2 enlace-andar1, eth3 enlace-andar2, mgmt0 gerencia.
+define INTERNET = 10.80.0.0/24
+define ALFA     = 10.80.21.0/24
+define BETA     = 10.80.22.0/24
+define GAMA     = 10.80.23.0/24
+define PORTAL   = 10.80.1.10
+define ARQUIVOS = 10.80.1.20
+define DNS      = 10.80.1.30
+define GERENTE  = 10.80.250.100
+
+table inet filtro {
+    # Pacotes que ATRAVESSAM o roteador.
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        iifname "mgmt0" counter drop comment "descarte-de-gerencia"
+        oifname "mgmt0" counter drop comment "descarte-para-gerencia"
+        ct state established,related accept comment "respostas"
+        ip protocol icmp ip saddr != $INTERNET accept comment "icmp-interno"
+        ip daddr $PORTAL tcp dport 80 accept comment "portal"
+        ip daddr $DNS meta l4proto { tcp, udp } th dport 53 accept comment "dns"
+        ip saddr { $ALFA, $BETA, $GAMA } ip daddr $ARQUIVOS tcp dport 8080 accept comment "arquivos"
+        ip saddr { $ALFA, $BETA, $GAMA } oifname "eth0" accept comment "inquilinas-internet"
+        iifname "eth0" counter drop comment "descarte-internet"
+        counter drop comment "descarte-forward"
+    }
+
+    # Pacotes PARA o próprio roteador.
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept comment "local"
+        ct state established,related accept comment "respostas"
+        iifname "mgmt0" ip saddr $GERENTE udp dport 161 accept comment "snmp-gerente"
+        iifname "mgmt0" ip saddr $GERENTE tcp dport 9102 accept comment "nft-gerente"
+        ip protocol icmp iifname != "mgmt0" ip saddr != $INTERNET accept comment "icmp-interno"
+        counter drop comment "descarte-input"
+    }
+}

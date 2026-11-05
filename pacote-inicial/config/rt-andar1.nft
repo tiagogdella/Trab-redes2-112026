@@ -1,0 +1,30 @@
+# Filtragem do rt-andar1. Interfaces: eth0 enlace-andar1, eth1 alfa, eth2 beta, mgmt0 gerencia.
+define INTERNET = 10.80.0.0/24
+define ALFA     = 10.80.21.0/24
+define BETA     = 10.80.22.0/24
+define GERENTE  = 10.80.250.100
+
+table inet filtro {
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        iifname "mgmt0" counter drop comment "descarte-de-gerencia"
+        oifname "mgmt0" counter drop comment "descarte-para-gerencia"
+        ct state established,related accept comment "respostas"
+        ip protocol icmp ip saddr != $INTERNET accept comment "icmp-interno"
+        iifname "eth1" ip saddr $ALFA oifname "eth0" accept comment "alfa-para-borda"
+        iifname "eth2" ip saddr $BETA oifname "eth0" accept comment "beta-para-borda"
+        iifname "eth1" oifname "eth2" counter drop comment "descarte-alfa-beta"
+        iifname "eth2" oifname "eth1" counter drop comment "descarte-beta-alfa"
+        counter drop comment "descarte-forward"
+    }
+
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept comment "local"
+        ct state established,related accept comment "respostas"
+        iifname "mgmt0" ip saddr $GERENTE udp dport 161 accept comment "snmp-gerente"
+        iifname "mgmt0" ip saddr $GERENTE tcp dport 9102 accept comment "nft-gerente"
+        ip protocol icmp iifname != "mgmt0" ip saddr != $INTERNET accept comment "icmp-interno"
+        counter drop comment "descarte-input"
+    }
+}
