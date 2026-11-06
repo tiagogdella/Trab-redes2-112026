@@ -1,1 +1,28 @@
-groups: []
+# Uma regra por critério de sucesso. Cada uma dispara quando o critério deixa de ser
+# cumprido, inclusive quando a sonda não entrega a métrica (up == 0).
+groups:
+  - name: criterios
+    rules:
+      - alert: C1-portal-internet
+        expr: probe_success{job="C1"} == 0 or up{job="C1"} == 0
+        for: 10s
+        labels: {severidade: critica}
+        annotations:
+          resumo: "C1: http://srv-portal/ não responde 200 à sonda-internet"
+
+      - alert: C2-portal-gama
+        expr: >
+          probe_success{job="C2"} == 0
+          or probe_duration_seconds{job="C2"} >= 0.05
+          or up{job="C2"} == 0
+        for: 10s
+        labels: {severidade: critica}
+        annotations:
+          resumo: "C2: http://srv-portal/ não responde 200 em menos de 50 ms à sonda-gama"
+
+      - alert: C3-arquivos-gama
+        expr: probe_success{job="C3"} == 0 or up{job="C3"} == 0
+        for: 10s
+        labels: {severidade: critica}
+        annotations:
+          resumo: "C3: http://srv-arquivos:8080/ não responde 200 à sonda-gama"

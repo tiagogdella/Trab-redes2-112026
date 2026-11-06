@@ -10,6 +10,12 @@ define DNS      = 10.80.1.30
 define GERENTE  = 10.80.250.100
 
 table inet filtro {
+    # Prefixos das inquilinas. A mudança da Gama troca um elemento deste conjunto.
+    set inquilinas {
+        type ipv4_addr; flags interval;
+        elements = { $ALFA, $BETA, $GAMA }
+    }
+
     # Pacotes que ATRAVESSAM o roteador.
     chain forward {
         type filter hook forward priority 0; policy drop;
@@ -19,8 +25,8 @@ table inet filtro {
         ip protocol icmp ip saddr != $INTERNET accept comment "icmp-interno"
         ip daddr $PORTAL tcp dport 80 accept comment "portal"
         ip daddr $DNS meta l4proto { tcp, udp } th dport 53 accept comment "dns"
-        ip saddr { $ALFA, $BETA, $GAMA } ip daddr $ARQUIVOS tcp dport 8080 accept comment "arquivos"
-        ip saddr { $ALFA, $BETA, $GAMA } oifname "eth0" accept comment "inquilinas-internet"
+        ip saddr @inquilinas  ip daddr $ARQUIVOS tcp dport 8080 accept comment "arquivos"
+        ip saddr @inquilinas  oifname "eth0" accept comment "inquilinas-internet"
         iifname "eth0" counter drop comment "descarte-internet"
         counter drop comment "descarte-forward"
     }

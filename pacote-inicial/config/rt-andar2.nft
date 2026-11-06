@@ -4,13 +4,19 @@ define GAMA     = 10.80.23.0/24
 define GERENTE  = 10.80.250.100
 
 table inet filtro {
+    # Prefixo da Gama. A mudança troca o elemento deste conjunto.
+    set gama {
+        type ipv4_addr; flags interval;
+        elements = { $GAMA }
+    }
+
     chain forward {
         type filter hook forward priority 0; policy drop;
         iifname "mgmt0" counter drop comment "descarte-de-gerencia"
         oifname "mgmt0" counter drop comment "descarte-para-gerencia"
         ct state established,related accept comment "respostas"
         ip protocol icmp ip saddr != $INTERNET accept comment "icmp-interno"
-        iifname "eth1" ip saddr $GAMA oifname "eth0" accept comment "gama-para-borda"
+        iifname "eth1" ip saddr @gama oifname "eth0" accept comment "gama-para-borda"
         counter drop comment "descarte-forward"
     }
 
