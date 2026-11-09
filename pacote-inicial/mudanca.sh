@@ -18,16 +18,14 @@ case "$1" in
         passo "$1" 1 rt-borda rt-andar2 sonda-gama cli-gama srv-dns
         echo "== $1, fase 2: desfaz o caminho antigo"
         passo "$1" 2 sonda-gama cli-gama rt-andar2 rt-borda ;;
-    validar)
+    validar|validar-reversao)
+        if [ "$1" = validar ]; then A=23 N=33; else A=33 N=23; fi
+        echo "== aguardando 15 s para as sondas testarem de novo com a rede nova"
+        sleep 15
         for maquina in rt-borda rt-andar2 cli-gama sonda-gama srv-dns gerente; do
-            docker exec "$maquina" sh $M/validar.sh 23 33 || falhou=1
+            docker exec "$maquina" sh $M/validar.sh $A $N || falhou=1
         done
-        [ -z "$falhou" ] && echo "== VALIDAÇÃO OK" || { echo "== VALIDAÇÃO FALHOU"; exit 1; } ;;
-    validar-reversao)
-        for maquina in rt-borda rt-andar2 cli-gama sonda-gama srv-dns gerente; do
-            docker exec "$maquina" sh $M/validar.sh 33 23 || falhou=1
-        done
-        [ -z "$falhou" ] && echo "== VALIDAÇÃO OK" || { echo "== VALIDAÇÃO FALHOU"; exit 1; } ;;
+        [ -z "$falhou" ] && echo "== VALIDAÇÃO OK" || { echo "== VALIDAÇÃO FALHOU"; exit 1; } ;;    
     *)
         echo "uso: $0 aplicar | validar | reverter | validar-reversao"; exit 2 ;;
 esac
