@@ -76,3 +76,19 @@ Formato: o que decidimos, por quê e o que mais consideramos.
   versão, nos dois sentidos (inventário → rede e rede → inventário).
 - **Por quê:** o tomllib já vem no Python 3.11+, sem instalar nada; o docker exec dá a
   mesma visão que o operador tem. Código de saída 1 quando há diferença (útil em automação).
+
+## D12. Mudança da gama: make-before-break
+- **Decisão:** 2 fases (acrescenta o novo, depois retira o antigo). Firewall com conjuntos
+  nomeados (`@inquilinas`, `@gama`), editados com `nft add/delete element`.
+  Um só comum.sh; aplicar = 23→33, reverter = 33→23 (a reversão é a mesma troca ao contrário).
+  Cada máquina faz a sua parte conforme o próprio hostname.
+- **Por quê:** trocar tudo de uma vez deixaria a Gama sem caminho por alguns segundos.
+  Com as 2 fases, os testes de 0,1 em 0,1 s não falharam nenhuma vez.
+  Os conjuntos nomeados mudam sem recarregar as regras e sem zerar os contadores.
+
+## D13. Validação espera o monitoramento
+- **Decisão:** o validar espera 15 s antes de conferir; o teste de isolamento separa
+  "timeout" (descartado), "refused/succeeded" (alcançou) e "inconclusivo".
+- **Por quê:** a 1ª versão deu falso positivo: validou no mesmo segundo da mudança e pegou
+  um teste da sonda interrompido pela troca de endereço (o alerta não disparou, por causa do
+  `for: 10s`). 15 s = pelo menos 2 testes novos de cada sonda (coleta a cada 5 s).
