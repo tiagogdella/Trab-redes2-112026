@@ -1,0 +1,26 @@
+Condições das medições
+Data: 2026-11-10 09:56:16
+Sistema: Linux Mint 22.3
+Kernel: 6.14.0-37-generic
+Processador: AMD Ryzen 3 3200G with Radeon Vega Graphics
+Núcleos: 4
+Memória: 13Gi
+Docker: 29.8.0
+Docker Compose: 5.5.1
+Carga do computador (1, 5, 15 min): 3.34 1.84 1.26
+Outros programas abertos: programas abertos: VS Code e terminal
+
+Contêineres:
+cli-alfa Up 3 seconds (healthy)
+cli-beta Up 4 seconds (healthy)
+cli-gama Up 3 seconds (healthy)
+externo Up 2 seconds (healthy)
+gerente Up 3 seconds (healthy)
+rt-andar1 Up 3 seconds (healthy)
+rt-andar2 Up 4 seconds (healthy)
+rt-borda Up 3 seconds (healthy)
+sonda-gama Up 4 seconds (healthy)
+sonda-internet Up 3 seconds (healthy)
+srv-arquivos Up 2 seconds (healthy)
+srv-dns Up 4 seconds (healthy)
+srv-portal Up 3 seconds (healthy)
